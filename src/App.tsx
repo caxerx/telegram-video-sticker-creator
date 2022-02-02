@@ -1,26 +1,26 @@
-import { Form, Row, Col, Progress, Input } from 'antd';
+import { Form, Row, Col, Progress, Input } from "antd";
 
-import { useEffect, useReducer, useRef } from 'react';
-import { fetchFile } from '@ffmpeg/ffmpeg';
-import { getFileInfo } from './utils/ffprobe';
+import { useEffect, useReducer, useRef } from "react";
+import { fetchFile } from "@ffmpeg/ffmpeg";
+import { getFileInfo } from "./utils/ffprobe";
 import {
   createConvertToH264Command,
   createEncodeCommand,
   createTrimAndCropCommand,
   ffmpeg,
   ffmpegInit,
-} from './utils/ffmpeg';
+} from "./utils/ffmpeg";
 
-import Cropper from 'cropperjs';
-import 'cropperjs/dist/cropper.css';
+import Cropper from "cropperjs";
+import "cropperjs/dist/cropper.css";
 
-import FileUpload from './components/FileUpload';
-import VideoCropper, { VideoCropperRefs } from './components/VideoCropper';
-import CropperToolbar from './components/CropperToolbar';
-import { formatTimeDuration } from './utils/time';
-import VideoTrimBar from './components/VideoTrimBar';
-import ConvertSettingForm from './components/ConvertSettingForm';
-import type { ConvertSetting, CropInfo } from './utils/types';
+import FileUpload from "./components/FileUpload";
+import VideoCropper, { VideoCropperRefs } from "./components/VideoCropper";
+import CropperToolbar from "./components/CropperToolbar";
+import { formatTimeDuration } from "./utils/time";
+import VideoTrimBar from "./components/VideoTrimBar";
+import ConvertSettingForm from "./components/ConvertSettingForm";
+import type { ConvertSetting, CropInfo } from "./utils/types";
 import {
   AppState,
   createReducer,
@@ -37,8 +37,8 @@ import {
   setVideoEditorConfigTrimTime,
   setVideoConfig,
   resetConvertor,
-} from './utils/store';
-import FileConvertedOutputCard from './components/FileConvertedOutputCard';
+} from "./utils/store";
+import FileConvertedOutputCard from "./components/FileConvertedOutputCard";
 
 const defaultState: AppState = {
   ffmpeg: {
@@ -59,7 +59,7 @@ const defaultState: AppState = {
     videoSrc: null,
   },
   convertor: {
-    convertStatus: 'idle',
+    convertStatus: "idle",
     progress: 0,
   },
   outputFile: {
@@ -81,7 +81,7 @@ const defaultState: AppState = {
 const App = () => {
   const [state, dispatch] = useReducer(
     createReducer(defaultState),
-    defaultState,
+    defaultState
   );
 
   const videoCropperRef = useRef<VideoCropperRefs>(null);
@@ -96,42 +96,44 @@ const App = () => {
     file: File | Blob,
     onProgress?: (progress: { percent: number }) => void,
     onComplete?: (f: boolean) => void,
-    onError?: (e: Error) => void,
+    onError?: (e: Error) => void
   ) {
-    const filename = 'video.mp4';
-    const h264TempFilename = 'h264.mp4';
+    const filename = "video.mp4";
+    const h264TempFilename = "h264.mp4";
 
     const data = await fetchFile(file);
 
     const originalFile = new File([data], filename);
-    const originalFileInfo = { name: '' };
+    const originalFileInfo = { name: "" };
     try {
       originalFileInfo.name = ((await getFileInfo(originalFile)) as any).name;
     } catch (e) {
       // ignore
     }
 
-    ffmpeg?.FS('writeFile', filename, data);
+    ffmpeg?.FS("writeFile", filename, data);
 
-    if (!originalFileInfo.name.includes('mp4')) {
+    if (!originalFileInfo.name.includes("mp4")) {
       ffmpeg.setProgress((progress) => {
         onProgress?.({ percent: progress.ratio * 100 });
       });
 
       try {
-        await ffmpeg.run(...createConvertToH264Command(filename, h264TempFilename));
-        const convertedData = ffmpeg.FS('readFile', h264TempFilename);
-        ffmpeg.FS('unlink', filename);
-        ffmpeg.FS('writeFile', filename, convertedData);
-        ffmpeg.FS('unlink', h264TempFilename);
+        await ffmpeg.run(
+          ...createConvertToH264Command(filename, h264TempFilename)
+        );
+        const convertedData = ffmpeg.FS("readFile", h264TempFilename);
+        ffmpeg.FS("unlink", filename);
+        ffmpeg.FS("writeFile", filename, convertedData);
+        ffmpeg.FS("unlink", h264TempFilename);
       } catch (e) {
-        onError?.(new Error('failed to convert file'));
+        onError?.(new Error("failed to convert file"));
         return;
       }
     }
 
     try {
-      const convertedData = ffmpeg.FS('readFile', filename);
+      const convertedData = ffmpeg.FS("readFile", filename);
       const convertedFile = new File([convertedData], filename);
       const fileInfo = (await getFileInfo(convertedFile)) as any;
 
@@ -140,12 +142,12 @@ const App = () => {
           duration: fileInfo.duration,
           width: fileInfo.streams[0].width,
           height: fileInfo.streams[0].height,
-        }),
+        })
       );
 
       dispatch(setInputVideo(convertedData));
     } catch (e) {
-      onError?.(new Error('failed to read info'));
+      onError?.(new Error("failed to read info"));
     }
 
     onComplete?.(true);
@@ -183,9 +185,9 @@ const App = () => {
   }
 
   async function convert(config: ConvertSetting) {
-    const filename = 'video.mp4';
-    const trimTempFilename = 'trim.mp4';
-    const outputFilename = 'output.webm';
+    const filename = "video.mp4";
+    const trimTempFilename = "trim.mp4";
+    const outputFilename = "output.webm";
 
     const cropInfo: CropInfo = {
       width: state.inputFile.videoInfo.width,
@@ -195,16 +197,19 @@ const App = () => {
       ...state.cropper.cropper?.getData(),
     };
 
-    const trimCommand =
-      createTrimAndCropCommand(
-        filename,
-        trimTempFilename,
-        config.time[0] / 1000000,
-        config.time[1] / 1000000,
-        cropInfo,
-      );
+    const trimCommand = createTrimAndCropCommand(
+      filename,
+      trimTempFilename,
+      config.time[0] / 1000000,
+      config.time[1] / 1000000,
+      cropInfo
+    );
 
-    const encodeCommand = createEncodeCommand(trimTempFilename, outputFilename, config);
+    const encodeCommand = createEncodeCommand(
+      trimTempFilename,
+      outputFilename,
+      config
+    );
 
     dispatch(setConvertorStartConvert());
 
@@ -219,16 +224,21 @@ const App = () => {
 
     dispatch(setConvertorFinished());
 
-    const convertedData = ffmpeg.FS('readFile', 'output.webm');
+    const convertedData = ffmpeg.FS("readFile", "output.webm");
 
     dispatch(setOutputVideo(convertedData));
 
-    ffmpeg.FS('unlink', trimTempFilename);
-    ffmpeg.FS('unlink', outputFilename);
+    ffmpeg.FS("unlink", trimTempFilename);
+    ffmpeg.FS("unlink", outputFilename);
   }
 
   return (
-    <div>
+    <div
+      style={{
+        maxWidth: "700px",
+        minWidth: "520px",
+      }}
+    >
       {!state.inputFile.fileLoaded && (
         <FileUpload
           onFileUpload={(f) => {
@@ -248,7 +258,7 @@ const App = () => {
 
           <div
             style={{
-              textAlign: 'center',
+              textAlign: "center",
             }}
           >
             FPS and Bitrate will not reflect in the preview video.
@@ -270,7 +280,7 @@ const App = () => {
               <Form.Item
                 name="time"
                 style={{
-                  padding: '20px',
+                  padding: "20px",
                 }}
               >
                 <VideoTrimBar
@@ -293,7 +303,7 @@ const App = () => {
                 value={formatTimeDuration(
                   state.videoEditorConfig.time[1] -
                     state.videoEditorConfig.time[0],
-                  state.videoEditorConfig.speed,
+                  state.videoEditorConfig.speed
                 )}
               />
             </Col>
@@ -320,23 +330,23 @@ const App = () => {
         </>
       )}
 
-      {(state.convertor.convertStatus === 'convertingEncode' ||
-        state.convertor.convertStatus === 'convertingTrim') && (
+      {(state.convertor.convertStatus === "convertingEncode" ||
+        state.convertor.convertStatus === "convertingTrim") && (
         <div
           style={{
-            padding: '20px',
-            maxWidth: '100vw',
+            padding: "20px",
+            maxWidth: "100vw",
           }}
         >
           <Progress percent={Math.round(state.convertor.progress * 100)} />
         </div>
       )}
 
-      {state.convertor.convertStatus === 'converted' && (
-      <FileConvertedOutputCard
-        outputFile={state.outputFile}
-        onConvertorReset={() => dispatch(resetConvertor())}
-      />
+      {state.convertor.convertStatus === "converted" && (
+        <FileConvertedOutputCard
+          outputFile={state.outputFile}
+          onConvertorReset={() => dispatch(resetConvertor())}
+        />
       )}
     </div>
   );
