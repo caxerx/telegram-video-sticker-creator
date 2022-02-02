@@ -10,7 +10,7 @@ The website used [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) to con
 
 - Chrome 97
 
-# Partially Supported
+## Partially Supported
 
 - Safari 15.3 on Mac
   - Preview not work properly
@@ -18,9 +18,8 @@ The website used [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) to con
 
 ## Not Supported
 
-- Browser on iOS
-  - The app can not load on iOS browsers
-  - Since
+- iOS Browser
+  - FFmpeg will cause Out of memory error.
 
 # Converted Format
 
@@ -28,6 +27,7 @@ The website used [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) to con
 - yuva420p
 - Fitted in a 512\*512 box
 - Max 30fps
+- Audio Tracks and Metadata Removed
 
 # WASM Library
 
