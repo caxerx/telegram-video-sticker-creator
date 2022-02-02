@@ -6,6 +6,10 @@ export function getFileInfo(file: File) {
       worker.onmessage = (m) => {
         resolve(m.data);
       };
+      worker.onerror = (m) => {
+        worker.postMessage(['clean_up']);
+        reject(m);
+      };
       worker.postMessage(['get_file_info', file]);
     } catch (e) {
       reject(e);
@@ -18,6 +22,10 @@ export function getFrames(file: File, frame: number) {
     try {
       worker.onmessage = (m) => {
         resolve(m.data);
+      };
+      worker.onerror = (m) => {
+        worker.postMessage(['clean_up']);
+        reject(m);
       };
       worker.postMessage(['get_frames', file, frame]);
     } catch (e) {

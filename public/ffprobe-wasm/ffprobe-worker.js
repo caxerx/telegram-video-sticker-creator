@@ -5,6 +5,9 @@ onmessage = (e) => {
     let data;
 
     switch (type) {
+        case 'clean_up':
+            FS.unmount('/work')
+            break
         case 'get_file_info':
             // Mount FS for files.
             if (!FS.analyzePath('/work').exists) {
