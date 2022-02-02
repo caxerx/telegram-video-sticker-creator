@@ -1,8 +1,8 @@
-import { createFFmpeg } from '@ffmpeg/ffmpeg';
-import { CropInfo, ConvertSetting } from './types';
+import { createFFmpeg } from "@ffmpeg/ffmpeg";
+import { CropInfo, ConvertSetting } from "./types";
 
 export const ffmpeg = createFFmpeg({
-  corePath: './ffmpeg-core/ffmpeg-core.js',
+  corePath: "./ffmpeg-core/ffmpeg-core.js",
 });
 
 export async function ffmpegInit() {
@@ -12,7 +12,7 @@ export async function ffmpegInit() {
 
 export function processUint8Array(
   data: Uint8Array,
-  type?: BlobPropertyBag,
+  type?: BlobPropertyBag
 ): [Blob, string] {
   const videoBlob = new Blob([data], type);
   return [videoBlob, URL.createObjectURL(videoBlob)];
@@ -20,15 +20,15 @@ export function processUint8Array(
 
 export function createConvertToH264Command(
   inputFilename: string,
-  outputFilename: string,
+  outputFilename: string
 ) {
   return [
-    '-i',
+    "-i",
     inputFilename,
-    '-c:a',
-    'copy',
-    '-c:v',
-    'libx264',
+    "-c:a",
+    "copy",
+    "-c:v",
+    "libx264",
     outputFilename,
   ];
 }
@@ -38,21 +38,21 @@ export function createTrimAndCropCommand(
   outputFilename: string,
   startTime: number,
   endTime: number,
-  cropInfo: CropInfo,
+  cropInfo: CropInfo
 ) {
   return [
-    '-i',
+    "-i",
     inputFilename,
-    '-an',
-    '-map_metadata',
-    '-1',
-    '-map_chapters',
-    '-1',
-    '-ss',
+    "-an",
+    "-map_metadata",
+    "-1",
+    "-map_chapters",
+    "-1",
+    "-ss",
     `${startTime}`,
-    '-to',
+    "-to",
     `${endTime}`,
-    '-filter:v',
+    "-filter:v",
     `crop=${cropInfo.width}:${cropInfo.height}:${cropInfo.x}:${cropInfo.y}`,
     outputFilename,
   ];
@@ -61,23 +61,23 @@ export function createTrimAndCropCommand(
 export function createEncodeCommand(
   inputFilename: string,
   outputFilename: string,
-  config: Exclude<ConvertSetting, 'time'>,
+  config: Exclude<ConvertSetting, "time">
 ) {
   return [
-    '-i',
+    "-i",
     inputFilename,
-    '-c:v',
-    'libvpx-vp9',
-    '-b:v',
+    "-c:v",
+    "libvpx-vp9",
+    "-b:v",
     `${config.bitrate}k`,
-    '-vf',
+    "-vf",
     `scale=w=512:h=512:force_original_aspect_ratio=decrease, setpts=${
       1 / config.speed
     }*PTS`,
-    '-r',
+    "-r",
     `${config.fps}`,
-    '-pix_fmt',
-    'yuva420p',
+    "-pix_fmt",
+    "yuva420p",
     outputFilename,
   ];
 }

@@ -1,4 +1,4 @@
-export const worker = new Worker('ffprobe-wasm/ffprobe-worker.js');
+export const worker = new Worker("ffprobe-wasm/ffprobe-worker.js");
 
 export function getFileInfo(file: File) {
   return new Promise((resolve, reject) => {
@@ -7,10 +7,10 @@ export function getFileInfo(file: File) {
         resolve(m.data);
       };
       worker.onerror = (m) => {
-        worker.postMessage(['clean_up']);
+        worker.postMessage(["clean_up"]);
         reject(m);
       };
-      worker.postMessage(['get_file_info', file]);
+      worker.postMessage(["get_file_info", file]);
     } catch (e) {
       reject(e);
     }
@@ -24,13 +24,12 @@ export function getFrames(file: File, frame: number) {
         resolve(m.data);
       };
       worker.onerror = (m) => {
-        worker.postMessage(['clean_up']);
+        worker.postMessage(["clean_up"]);
         reject(m);
       };
-      worker.postMessage(['get_frames', file, frame]);
+      worker.postMessage(["get_frames", file, frame]);
     } catch (e) {
       reject(e);
     }
   });
 }
-

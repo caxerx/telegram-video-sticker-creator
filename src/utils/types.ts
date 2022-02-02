@@ -11,7 +11,7 @@ export interface VideoInfo {
   height: number;
 }
 
-export interface CropInfo{
+export interface CropInfo {
   width: number;
   height: number;
   x: number;

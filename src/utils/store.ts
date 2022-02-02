@@ -1,6 +1,6 @@
-import produce from 'immer';
-import { processUint8Array } from './ffmpeg';
-import type { ConvertSetting, VideoInfo } from './types';
+import produce from "immer";
+import { processUint8Array } from "./ffmpeg";
+import type { ConvertSetting, VideoInfo } from "./types";
 
 export interface AppState {
   ffmpeg: {
@@ -26,7 +26,7 @@ export interface AppState {
   };
   videoEditorConfig: ConvertSetting;
   convertor: {
-    convertStatus: 'idle' | 'convertingTrim' | 'convertingEncode' | 'converted';
+    convertStatus: "idle" | "convertingTrim" | "convertingEncode" | "converted";
     progress: number;
   };
 }
@@ -34,20 +34,20 @@ export interface AppState {
 export type StoreAction = (state: AppState) => void;
 
 export interface ReducerAction {
-  type: 'setStateAction';
+  type: "setStateAction";
   action: (state: AppState) => AppState;
 }
 
 export function createAction(action: StoreAction): ReducerAction {
   return {
-    type: 'setStateAction',
+    type: "setStateAction",
     action: (state: AppState) => produce(state, action),
   };
 }
 
 export function createReducer(defaultState: AppState) {
   return (state: AppState, action: ReducerAction): AppState => {
-    if (action.type === 'setStateAction') {
+    if (action.type === "setStateAction") {
       return action.action(state);
     }
     return defaultState;
@@ -68,7 +68,7 @@ export function setInputVideoInfo(videoInfo: VideoInfo): ReducerAction {
 }
 
 export function setInputVideo(video: Uint8Array): ReducerAction {
-  const [blob, src] = processUint8Array(video, { type: 'video/mp4' });
+  const [blob, src] = processUint8Array(video, { type: "video/mp4" });
   return createAction((draft) => {
     draft.inputFile.fileLoaded = true;
     draft.inputFile.videoBlob = blob;
@@ -93,14 +93,14 @@ export function setCropperDisabled(cropper: Cropper | null) {
 
 export function setConvertorStartConvert(): ReducerAction {
   return createAction((draft) => {
-    draft.convertor.convertStatus = 'convertingTrim';
+    draft.convertor.convertStatus = "convertingTrim";
     draft.convertor.progress = 0;
   });
 }
 
 export function setConvertorConvertEncode(): ReducerAction {
   return createAction((draft) => {
-    draft.convertor.convertStatus = 'convertingEncode';
+    draft.convertor.convertStatus = "convertingEncode";
     draft.convertor.progress = 0.5;
   });
 }
@@ -108,7 +108,7 @@ export function setConvertorConvertEncode(): ReducerAction {
 export function setConvertorProgress(progress: number): ReducerAction {
   const cappedProgress = Math.min(0, Math.max(1, progress));
   return createAction((draft) => {
-    if (draft.convertor.convertStatus === 'convertingTrim') {
+    if (draft.convertor.convertStatus === "convertingTrim") {
       draft.convertor.progress = cappedProgress;
     } else {
       draft.convertor.progress = cappedProgress / 2 + 0.5;
@@ -118,13 +118,13 @@ export function setConvertorProgress(progress: number): ReducerAction {
 
 export function setConvertorFinished(): ReducerAction {
   return createAction((draft) => {
-    draft.convertor.convertStatus = 'converted';
+    draft.convertor.convertStatus = "converted";
     draft.convertor.progress = 1;
   });
 }
 
 export function setOutputVideo(video: Uint8Array): ReducerAction {
-  const [blob, src] = processUint8Array(video, { type: 'video/webm' });
+  const [blob, src] = processUint8Array(video, { type: "video/webm" });
   return createAction((draft) => {
     draft.outputFile.fileLoaded = true;
     draft.outputFile.fileInfo = {
@@ -137,18 +137,22 @@ export function setOutputVideo(video: Uint8Array): ReducerAction {
 
 export function resetConvertor(): ReducerAction {
   return createAction((draft) => {
-    draft.convertor.convertStatus = 'idle';
+    draft.convertor.convertStatus = "idle";
     draft.convertor.progress = 0;
   });
 }
 
-export function setVideoEditorConfigTrimTime(time: [number, number]): ReducerAction {
+export function setVideoEditorConfigTrimTime(
+  time: [number, number]
+): ReducerAction {
   return createAction((draft) => {
     draft.videoEditorConfig.time = time;
   });
 }
 
-export function setVideoConfig(videoConfig: Partial<ConvertSetting>): ReducerAction {
+export function setVideoConfig(
+  videoConfig: Partial<ConvertSetting>
+): ReducerAction {
   return createAction((draft) => {
     Object.assign(draft.videoEditorConfig, videoConfig);
   });

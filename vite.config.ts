@@ -12,9 +12,9 @@ export default defineConfig({
         manualChunks: {
           react: ["react", "react-dom", "immer"],
           antd: ["antd", "@ant-design/icons"],
-          cropper: ['cropperjs'],
-          dayjs: ['dayjs'],
-          ffmpeg:['@ffmpeg/ffmpeg']
+          cropper: ["cropperjs"],
+          dayjs: ["dayjs"],
+          ffmpeg: ["@ffmpeg/ffmpeg"],
         },
       },
     },
