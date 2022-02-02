@@ -10,13 +10,14 @@ import {
   Upload,
   Tooltip,
   Input,
+  Switch,
 } from 'antd';
 
 import { InboxOutlined } from '@ant-design/icons';
 
 import { useEffect, useRef, useState } from 'react';
 import { fetchFile } from '@ffmpeg/ffmpeg';
-import { getFileInfo, getFrames } from './utils/ffprobe';
+import { getFileInfo } from './utils/ffprobe';
 import { ffmpeg } from './utils/ffmpeg';
 
 import Cropper from 'cropperjs';
@@ -25,6 +26,7 @@ import './cropper.scss';
 
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
+import FormItem from 'antd/lib/form/FormItem';
 
 dayjs.extend(duration);
 
@@ -41,7 +43,11 @@ const App = () => {
 
   const [convertedSrc, setConvertedSrc] = useState<string>();
   const [convertedFileSize, setConvertedFileSize] = useState<number>();
-  const [videoDuration, setVideoDuration] = useState<number>(10);
+  const [videoInfo, setVideoInfo] = useState<{duration: number; width: number; height: number}>({
+    duration: 10,
+    width: 10,
+    height: 10,
+  });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,46 +71,71 @@ const App = () => {
   ) {
     const filename = 'video.mp4';
     const data = await fetchFile(file);
+
+    const originalFile = new File([data], filename);
+    const originalFileInfo = { name: '' };
+    try {
+      originalFileInfo.name = (await getFileInfo(originalFile) as any).name;
+    } catch (e) {
+      console.log('err', e);
+      // ignore
+    }
+
     ffmpeg?.FS('writeFile', filename, data);
 
-    ffmpeg.setProgress((progress) => {
-      onProgress?.({ percent: progress.ratio * 100 });
-    });
+    if (originalFileInfo.name.includes('mp4')) {
+      ffmpeg.FS('writeFile', 'input.mp4', data);
+    } else {
+      ffmpeg.setProgress((progress) => {
+        onProgress?.({ percent: progress.ratio * 100 });
+      });
 
-    try {
-      await ffmpeg.run(
-        '-i',
-        filename,
-        '-c:a',
-        'copy',
-        '-c:v',
-        'libx264',
-        'input.mp4',
-      );
-    } catch (e) {
-      onError?.(new Error('failed to convert file'));
-      return;
+      try {
+        await ffmpeg.run(
+          '-i',
+          filename,
+          '-c:a',
+          'copy',
+          '-c:v',
+          'libx264',
+          'input.mp4',
+        );
+      } catch (e) {
+        onError?.(new Error('failed to convert file'));
+        return;
+      }
     }
+
     onComplete?.(true);
 
     const convertedData = ffmpeg.FS('readFile', 'input.mp4');
     const convertedFile = new File([convertedData], 'input.mp4');
     const fileInfo = (await getFileInfo(convertedFile)) as any;
 
-    setVideoDuration(fileInfo.duration);
-    setVideoSrc(uint8ArrayToBlobUrl(convertedData));
-    setTimeout(() => {
-      if (canvasRef.current) {
-        const _cropper = new Cropper(canvasRef.current, {
-          background: false,
-          modal: false,
-          highlight: false,
-          viewMode: 1,
-        });
-        _cropper.destroy();
-        setCropper(_cropper);
-      }
+    setVideoInfo({
+      duration: fileInfo.duration,
+      width: fileInfo.streams[0].width,
+      height: fileInfo.streams[0].height,
     });
+
+    setVideoSrc(uint8ArrayToBlobUrl(convertedData));
+  }
+
+  function enableCropper() {
+    if (canvasRef.current) {
+      const _cropper = new Cropper(canvasRef.current, {
+        background: false,
+        modal: false,
+        highlight: false,
+        viewMode: 1,
+      });
+      setCropper(_cropper);
+    }
+  }
+
+  function disableCropper() {
+    cropper?.destroy();
+    setCropper(undefined);
   }
 
   function timeStop(stop: number) {
@@ -126,7 +157,13 @@ const App = () => {
   }
 
   async function convert(config: ConvertSetting) {
-    console.log(cropper?.getCropBoxData());
+    const cropInfo = {
+      width: videoInfo.width,
+      height: videoInfo.height,
+      x: 0,
+      y: 0,
+      ...cropper?.getData(),
+    };
     const trimCommand = [
       '-i',
       'input.mp4',
@@ -134,6 +171,8 @@ const App = () => {
       `${config.time[0] / 1000000}`,
       '-to',
       `${config.time[1] / 1000000}`,
+      '-filter:v',
+      `crop=${cropInfo.width}:${cropInfo.height}:${cropInfo.x}:${cropInfo.y}`,
       'trim.mp4',
     ];
 
@@ -166,6 +205,7 @@ const App = () => {
     setConverting(true);
 
     ffmpeg.setProgress((p) => {
+      console.log(p);
       setConvertProgress(p.ratio);
     });
 
@@ -207,7 +247,6 @@ const App = () => {
                   return f.onError?.(new Error('Invalid file'));
                 }
                 loadInputFile(fFile, f.onProgress, f.onSuccess, f.onError);
-                console.log(f);
               }}
             >
               <p className="ant-upload-drag-icon">
@@ -222,14 +261,30 @@ const App = () => {
       {videoSrc && (
         <>
           <div className="video-section">
-            <div id="video-container">
+            <div
+              id="video-container"
+              style={{
+                aspectRatio: `${videoInfo.width} / ${videoInfo.height}`,
+                width: videoInfo.width,
+                maxWidth: 512,
+                maxHeight: 512,
+              }}
+            >
               <video ref={videoRef}>
                 <source src={`${videoSrc}`} />
               </video>
             </div>
 
-            <div id="crop-container">
-              <canvas width={700} height={700} ref={canvasRef} />
+            <div
+              id="crop-container"
+              style={{
+                aspectRatio: `${videoInfo.width} / ${videoInfo.height}`,
+                width: videoInfo.width,
+                maxWidth: 512,
+                maxHeight: 512,
+              }}
+            >
+              <canvas width={videoInfo.width} height={videoInfo.height} ref={canvasRef} />
             </div>
 
 
@@ -243,13 +298,70 @@ const App = () => {
             FPS and Bitrate will not reflect in the preview video.
           </div>
 
+          <Form
+            layout="inline"
+            style={{
+              padding: '20px',
+            }}
+          >
+            <FormItem label="Crop">
+              <Switch
+                onChange={(v) => {
+                  v ? enableCropper() : disableCropper();
+                }}
+                checked={!!cropper}
+              />
+            </FormItem>
+            {
+              !!cropper && (
+                <>
+                  <FormItem>
+                    <Button onClick={() => {
+                      cropper?.setAspectRatio(NaN);
+                    }}
+                    >
+                      Custom
+                    </Button>
+                  </FormItem>
+
+                  <FormItem>
+                    <Button onClick={() => {
+                      cropper?.setAspectRatio(1 / 1);
+                    }}
+                    >
+                      Square
+                    </Button>
+                  </FormItem>
+
+                  <FormItem>
+                    <Button onClick={() => {
+                      cropper?.setAspectRatio(16 / 9);
+                    }}
+                    >
+                      16:9
+                    </Button>
+                  </FormItem>
+
+                  <FormItem>
+                    <Button onClick={() => {
+                      cropper?.setAspectRatio(4 / 3);
+                    }}
+                    >
+                      4:3
+                    </Button>
+                  </FormItem>
+                </>
+              )
+            }
+          </Form>
+
           <Form<ConvertSetting>
             name="basic"
             initialValues={{
               speed: 1.0,
               fps: 30,
               bitrate: 1200,
-              time: [0, videoDuration],
+              time: [0, videoInfo.duration],
             }}
             onFinish={(v) => {
               if (videoRef.current) {
@@ -271,7 +383,7 @@ const App = () => {
                     <Form.Item name="time">
                       <Slider
                         range={{ draggableTrack: true }}
-                        max={videoDuration}
+                        max={videoInfo.duration}
                         step={1}
                         tipFormatter={(v) =>
                           (typeof v === 'number'
@@ -292,7 +404,7 @@ const App = () => {
                       />
                     </Form.Item>
                   </Col>
-                  <Col span={2}>
+                  <Col span={5}>
                     <Input
                       disabled
                       value={dayjs
@@ -338,7 +450,7 @@ const App = () => {
                   >
                     <Button
                       onClick={() => convert(store)}
-                      disabled={
+                      danger={
                         (store.time[1] - store.time[0]) / store.speed > 3000000
                       }
                     >
@@ -356,9 +468,10 @@ const App = () => {
         <div
           style={{
             padding: '20px',
+            width: '100%',
           }}
         >
-          <Progress percent={convertProgress * 100} />
+          <Progress percent={Math.round(convertProgress * 100)} />
         </div>
       )}
 
@@ -366,9 +479,19 @@ const App = () => {
         <Card
           size="default"
           title={
-            <a download href={convertedSrc}>
-              Download Video ({Math.ceil(convertedFileSize / 1000)}KB)
-            </a>
+            <Tooltip
+              title="The video sticker file size is limited to 256KB"
+              visible={convertedFileSize <= 256000 ? false : undefined}
+            >
+              <Button
+                download
+                type="link"
+                href={convertedSrc}
+                danger={convertedFileSize > 256000 ? true : undefined}
+              >
+                Download Video ({Math.ceil(convertedFileSize / 1000)}KB)
+              </Button>
+            </Tooltip>
           }
           extra={
             <a href="#" onClick={() => setConvertedSrc(undefined)}>
