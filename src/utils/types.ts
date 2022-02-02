@@ -10,3 +10,10 @@ export interface VideoInfo {
   width: number;
   height: number;
 }
+
+export interface CropInfo{
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+}

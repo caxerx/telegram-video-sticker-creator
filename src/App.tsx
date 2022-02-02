@@ -3,7 +3,13 @@ import { Button, Form, Row, Col, Progress, Card, Tooltip, Input } from 'antd';
 import { useEffect, useReducer, useRef } from 'react';
 import { fetchFile } from '@ffmpeg/ffmpeg';
 import { getFileInfo } from './utils/ffprobe';
-import { ffmpeg, ffmpegInit } from './utils/ffmpeg';
+import {
+  createConvertToH264Command,
+  createEncodeCommand,
+  createTrimAndCropCommand,
+  ffmpeg,
+  ffmpegInit,
+} from './utils/ffmpeg';
 
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
@@ -14,7 +20,7 @@ import CropperToolbar from './components/CropperToolbar';
 import { formatTimeDuration } from './utils/time';
 import VideoTrimBar from './components/VideoTrimBar';
 import ConvertSettingForm from './components/ConvertSettingForm';
-import type { ConvertSetting } from './utils/types';
+import type { ConvertSetting, CropInfo } from './utils/types';
 import {
   AppState,
   createReducer,
@@ -92,6 +98,8 @@ const App = () => {
     onError?: (e: Error) => void,
   ) {
     const filename = 'video.mp4';
+    const h264TempFilename = 'h264.mp4';
+
     const data = await fetchFile(file);
 
     const originalFile = new File([data], filename);
@@ -104,44 +112,42 @@ const App = () => {
 
     ffmpeg?.FS('writeFile', filename, data);
 
-    if (originalFileInfo.name.includes('mp4')) {
-      ffmpeg.FS('writeFile', 'input.mp4', data);
-    } else {
+    if (!originalFileInfo.name.includes('mp4')) {
       ffmpeg.setProgress((progress) => {
         onProgress?.({ percent: progress.ratio * 100 });
       });
 
       try {
-        await ffmpeg.run(
-          '-i',
-          filename,
-          '-c:a',
-          'copy',
-          '-c:v',
-          'libx264',
-          'input.mp4',
-        );
+        await ffmpeg.run(...createConvertToH264Command(filename, h264TempFilename));
+        const convertedData = ffmpeg.FS('readFile', h264TempFilename);
+        ffmpeg.FS('unlink', filename);
+        ffmpeg.FS('writeFile', filename, convertedData);
+        ffmpeg.FS('unlink', h264TempFilename);
       } catch (e) {
         onError?.(new Error('failed to convert file'));
         return;
       }
     }
 
+    try {
+      const convertedData = ffmpeg.FS('readFile', filename);
+      const convertedFile = new File([convertedData], filename);
+      const fileInfo = (await getFileInfo(convertedFile)) as any;
+
+      dispatch(
+        setInputVideoInfo({
+          duration: fileInfo.duration,
+          width: fileInfo.streams[0].width,
+          height: fileInfo.streams[0].height,
+        }),
+      );
+
+      dispatch(setInputVideo(convertedData));
+    } catch (e) {
+      onError?.(new Error('failed to read info'));
+    }
+
     onComplete?.(true);
-
-    const convertedData = ffmpeg.FS('readFile', 'input.mp4');
-    const convertedFile = new File([convertedData], 'input.mp4');
-    const fileInfo = (await getFileInfo(convertedFile)) as any;
-
-    dispatch(
-      setInputVideoInfo({
-        duration: fileInfo.duration,
-        width: fileInfo.streams[0].width,
-        height: fileInfo.streams[0].height,
-      }),
-    );
-
-    dispatch(setInputVideo(convertedData));
   }
 
   function enableCropper() {
@@ -176,54 +182,28 @@ const App = () => {
   }
 
   async function convert(config: ConvertSetting) {
-    const cropInfo = {
+    const filename = 'video.mp4';
+    const trimTempFilename = 'trim.mp4';
+    const outputFilename = 'output.webm';
+
+    const cropInfo: CropInfo = {
       width: state.inputFile.videoInfo.width,
       height: state.inputFile.videoInfo.height,
       x: 0,
       y: 0,
       ...state.cropper.cropper?.getData(),
     };
-    const trimCommand = [
-      '-i',
-      'input.mp4',
-      '-an',
-      '-map_metadata',
-      '-1',
-      '-map_chapters',
-      '-1',
-      '-ss',
-      `${config.time[0] / 1000000}`,
-      '-to',
-      `${config.time[1] / 1000000}`,
-      '-filter:v',
-      `crop=${cropInfo.width}:${cropInfo.height}:${cropInfo.x}:${cropInfo.y}`,
-      'trim.mp4',
-    ];
 
-    const command = [
-      '-i',
-      'trim.mp4',
-      '-c:v',
-      'libvpx-vp9',
-      '-b:v',
-      `${config.bitrate}k`,
-      '-vf',
-      `scale=w=512:h=512:force_original_aspect_ratio=decrease, setpts=${
-        1 / config.speed
-      }*PTS`,
-      '-r',
-      `${config.fps}`,
-      '-pix_fmt',
-      'yuva420p',
-      'output.webm',
-    ];
+    const trimCommand =
+      createTrimAndCropCommand(
+        filename,
+        trimTempFilename,
+        config.time[0] / 1000000,
+        config.time[1] / 1000000,
+        cropInfo,
+      );
 
-    try {
-      ffmpeg.FS('unlink', 'trim.mp4');
-      ffmpeg.FS('unlink', 'output.webm');
-    } catch (e) {
-      // ignore
-    }
+    const encodeCommand = createEncodeCommand(trimTempFilename, outputFilename, config);
 
     dispatch(setConvertorStartConvert());
 
@@ -234,13 +214,16 @@ const App = () => {
     await ffmpeg.run(...trimCommand);
 
     dispatch(setConvertorConvertEncode());
-    await ffmpeg.run(...command);
+    await ffmpeg.run(...encodeCommand);
 
     dispatch(setConvertorFinished());
 
     const convertedData = ffmpeg.FS('readFile', 'output.webm');
 
     dispatch(setOutputVideo(convertedData));
+
+    ffmpeg.FS('unlink', trimTempFilename);
+    ffmpeg.FS('unlink', outputFilename);
   }
 
   return (
@@ -349,15 +332,20 @@ const App = () => {
           title={
             <Tooltip
               title="The video sticker file size is limited to 256KB"
-              visible={state.outputFile.fileInfo.fileSize <= 256000 ? false : undefined}
+              visible={
+                state.outputFile.fileInfo.fileSize <= 256000 ? false : undefined
+              }
             >
               <Button
                 download
                 type="link"
                 href={state.outputFile.videoSrc ?? ''}
-                danger={state.outputFile.fileInfo.fileSize > 256000 ? true : undefined}
+                danger={
+                  state.outputFile.fileInfo.fileSize > 256000 ? true : undefined
+                }
               >
-                Download Video ({Math.ceil(state.outputFile.fileInfo.fileSize / 1000)}KB)
+                Download Video (
+                {Math.ceil(state.outputFile.fileInfo.fileSize / 1000)}KB)
               </Button>
             </Tooltip>
           }
@@ -370,7 +358,11 @@ const App = () => {
         >
           <Row>
             <Col span={24}>
-              <video controls key={state.outputFile.videoSrc ?? ''} style={{ width: '100%' }}>
+              <video
+                controls
+                key={state.outputFile.videoSrc ?? ''}
+                style={{ width: '100%' }}
+              >
                 <source src={state.outputFile.videoSrc ?? ''} />
               </video>
             </Col>

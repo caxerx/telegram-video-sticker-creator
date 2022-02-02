@@ -68,7 +68,7 @@ export function setInputVideoInfo(videoInfo: VideoInfo): ReducerAction {
 }
 
 export function setInputVideo(video: Uint8Array): ReducerAction {
-  const [blob, src] = processUint8Array(video);
+  const [blob, src] = processUint8Array(video, { type: 'video/mp4' });
   return createAction((draft) => {
     draft.inputFile.fileLoaded = true;
     draft.inputFile.videoBlob = blob;
@@ -110,7 +110,7 @@ export function setConvertorProgress(progress: number): ReducerAction {
     if (draft.convertor.convertStatus === 'convertingTrim') {
       draft.convertor.progress = progress;
     } else {
-      draft.convertor.progress = progress + 0.5;
+      draft.convertor.progress = progress / 2 + 0.5;
     }
   });
 }
