@@ -1,9 +1,9 @@
-import { InboxOutlined } from '@ant-design/icons';
-import { Upload } from 'antd';
-import type { UploadRequestOption } from 'rc-upload/lib/interface';
+import { InboxOutlined } from "@ant-design/icons";
+import { Upload } from "antd";
+import type { UploadRequestOption } from "rc-upload/lib/interface";
 
-export interface FileUploadRequestOption extends UploadRequestOption{
-  file: Exclude<UploadRequestOption['file'], string>;
+export interface FileUploadRequestOption extends UploadRequestOption {
+  file: Exclude<UploadRequestOption["file"], string>;
 }
 
 export interface FileUploadProps {
@@ -14,22 +14,22 @@ const FileUpload = ({ onFileUpload }: FileUploadProps) => {
   return (
     <div
       style={{
-        height: '100vh',
-        width: '100vw',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        height: "100vh",
+        width: "100vw",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
       <div>
         <Upload.Dragger
           multiple={false}
           style={{
-            padding: '1rem',
+            padding: "1rem",
           }}
           customRequest={(f: UploadRequestOption) => {
-            if (typeof f.file === 'string') {
-              return f.onError?.(new Error('Invalid file'));
+            if (typeof f.file === "string") {
+              return f.onError?.(new Error("Invalid file"));
             }
             onFileUpload(f as FileUploadRequestOption);
           }}

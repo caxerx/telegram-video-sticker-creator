@@ -10,13 +10,17 @@ The website used [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) to con
 
 - Chrome 97
 
+# Partially Supported
+
+- Safari 15.3 on Mac
+  - Preview not work properly
+  - Exported file is working
+
 ## Not Supported
 
-- Safari on Mac
-  - preview is not working
-  - not exporting the correct file
-- Safari on iOS
-  - the app do not load
+- Browser on iOS
+  - The app can not load on iOS browsers
+  - Since
 
 # Converted Format
 

@@ -106,11 +106,12 @@ export function setConvertorConvertEncode(): ReducerAction {
 }
 
 export function setConvertorProgress(progress: number): ReducerAction {
+  const cappedProgress = Math.min(0, Math.max(1, progress));
   return createAction((draft) => {
     if (draft.convertor.convertStatus === 'convertingTrim') {
-      draft.convertor.progress = progress;
+      draft.convertor.progress = cappedProgress;
     } else {
-      draft.convertor.progress = progress / 2 + 0.5;
+      draft.convertor.progress = cappedProgress / 2 + 0.5;
     }
   });
 }

@@ -1,5 +1,5 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
-import '../cropper.scss';
+import { forwardRef, useImperativeHandle, useRef } from "react";
+import "../cropper.scss";
 
 export interface VideoCropperProps {
   videoInfo: { width: number; height: number };
@@ -56,7 +56,7 @@ const VideoCropper = forwardRef<VideoCropperRefs, VideoCropperProps>(
         </div>
       </div>
     );
-  },
+  }
 );
 
 export default VideoCropper;

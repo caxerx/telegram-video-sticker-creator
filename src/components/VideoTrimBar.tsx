@@ -1,6 +1,5 @@
-import { Slider } from 'antd';
-import { formatTimeDuration } from '../utils/time';
-
+import { Slider } from "antd";
+import { formatTimeDuration } from "../utils/time";
 
 export interface VideoTrimBarProps {
   videoInfo: { duration: number };

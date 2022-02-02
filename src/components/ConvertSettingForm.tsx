@@ -1,5 +1,5 @@
-import { Button, Col, Form, InputNumber, Row, Slider, Tooltip } from 'antd';
-import type { ConvertSetting } from '../utils/types';
+import { Button, Col, Form, InputNumber, Row, Slider, Tooltip } from "antd";
+import type { ConvertSetting } from "../utils/types";
 
 interface ConvertSettingFormProps {
   videoEditorConfig: ConvertSetting;
@@ -24,7 +24,7 @@ const ConvertSettingForm = ({
       }}
       autoComplete="off"
       style={{
-        padding: '20px',
+        padding: "20px",
       }}
       onValuesChange={onSettingUpdate}
     >
@@ -56,7 +56,7 @@ const ConvertSettingForm = ({
           </Button>
 
           <Tooltip
-            title="Length is limited to 3 seconds"
+            title="Telegram video sticker has video length limit: 3 seconds"
             visible={
               (videoEditorConfig.time[1] - videoEditorConfig.time[0]) /
                 videoEditorConfig.speed <=

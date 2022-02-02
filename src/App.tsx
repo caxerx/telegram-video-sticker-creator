@@ -1,4 +1,4 @@
-import { Button, Form, Row, Col, Progress, Card, Tooltip, Input } from 'antd';
+import { Form, Row, Col, Progress, Input } from 'antd';
 
 import { useEffect, useReducer, useRef } from 'react';
 import { fetchFile } from '@ffmpeg/ffmpeg';
@@ -38,6 +38,7 @@ import {
   setVideoConfig,
   resetConvertor,
 } from './utils/store';
+import FileConvertedOutputCard from './components/FileConvertedOutputCard';
 
 const defaultState: AppState = {
   ffmpeg: {
@@ -266,7 +267,12 @@ const App = () => {
 
           <Row gutter={8}>
             <Col span={18}>
-              <Form.Item name="time">
+              <Form.Item
+                name="time"
+                style={{
+                  padding: '20px',
+                }}
+              >
                 <VideoTrimBar
                   videoInfo={state.inputFile.videoInfo}
                   videoEditorConfig={state.videoEditorConfig}
@@ -327,47 +333,10 @@ const App = () => {
       )}
 
       {state.convertor.convertStatus === 'converted' && (
-        <Card
-          size="default"
-          title={
-            <Tooltip
-              title="The video sticker file size is limited to 256KB"
-              visible={
-                state.outputFile.fileInfo.fileSize <= 256000 ? false : undefined
-              }
-            >
-              <Button
-                download
-                type="link"
-                href={state.outputFile.videoSrc ?? ''}
-                danger={
-                  state.outputFile.fileInfo.fileSize > 256000 ? true : undefined
-                }
-              >
-                Download Video (
-                {Math.ceil(state.outputFile.fileInfo.fileSize / 1000)}KB)
-              </Button>
-            </Tooltip>
-          }
-          extra={
-            <a href="#" onClick={() => dispatch(resetConvertor())}>
-              Close
-            </a>
-          }
-          style={{ width: 300 }}
-        >
-          <Row>
-            <Col span={24}>
-              <video
-                controls
-                key={state.outputFile.videoSrc ?? ''}
-                style={{ width: '100%' }}
-              >
-                <source src={state.outputFile.videoSrc ?? ''} />
-              </video>
-            </Col>
-          </Row>
-        </Card>
+      <FileConvertedOutputCard
+        outputFile={state.outputFile}
+        onConvertorReset={() => dispatch(resetConvertor())}
+      />
       )}
     </div>
   );
