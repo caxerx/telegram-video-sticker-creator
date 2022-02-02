@@ -7,7 +7,11 @@ import {
   Col,
   Progress,
   Card,
+  Upload,
 } from 'antd';
+
+import { InboxOutlined } from '@ant-design/icons';
+
 import { useEffect, useRef, useState } from 'react';
 import { fetchFile } from '@ffmpeg/ffmpeg';
 import { getFileInfo, getFrames } from './utils/ffprobe';
@@ -18,7 +22,7 @@ import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
 
-interface ConvertSetting{
+interface ConvertSetting {
   bitrate: number;
   fps: number;
   speed: number;
@@ -36,7 +40,7 @@ const App = () => {
   const [videoDuration, setVideoDuration] = useState<number>(10);
 
   const [converting, setConverting] = useState(false);
-  const [progress, setProgress] = useState(-1);
+  const [convertProgress, setConvertProgress] = useState(-1);
 
   useEffect(() => {
     ffmpeg.load().then(() => {
@@ -45,14 +49,21 @@ const App = () => {
     });
   }, []);
 
-  useEffect(() => {
-    if (!init) return;
+  async function loadInputFile(
+    file: File | Blob,
+    onProgress?: (progress: { percent: number }) => void,
+    onComplete?: (f: boolean) => void,
+    onError?: (e: Error) => void,
+  ) {
+    const filename = 'video.mp4';
+    const data = await fetchFile(file);
+    ffmpeg?.FS('writeFile', filename, data);
 
-    (async () => {
-      const filename = 'video.mp4';
-      const data = await fetchFile(filename);
-      ffmpeg?.FS('writeFile', filename, data);
+    ffmpeg.setProgress((progress) => {
+      onProgress?.({ percent: progress.ratio });
+    });
 
+    try {
       await ffmpeg.run(
         '-i',
         filename,
@@ -62,19 +73,19 @@ const App = () => {
         'libx264',
         'input.mp4',
       );
+    } catch (e) {
+      onError?.(new Error('failed to convert file'));
+      return;
+    }
+    onComplete?.(true);
 
-      const convertedData = ffmpeg.FS('readFile', 'input.mp4');
-      const file = new File([convertedData], 'input.mp4');
-      const fileInfo = (await getFileInfo(file)) as any;
+    const convertedData = ffmpeg.FS('readFile', 'input.mp4');
+    const convertedFile = new File([convertedData], 'input.mp4');
+    const fileInfo = (await getFileInfo(convertedFile)) as any;
 
-      // const frameInfo = (await getFrames(file, 0)) as any;
-      // console.log(fileInfo, frameInfo);
-
-      setVideoDuration(fileInfo.duration);
-
-      setVideoSrc(uint8ArrayToBlobUrl(convertedData));
-    })();
-  }, [init]);
+    setVideoDuration(fileInfo.duration);
+    setVideoSrc(uint8ArrayToBlobUrl(convertedData));
+  }
 
   function timeStop(stop: number) {
     if (!videoRef.current) return;
@@ -103,7 +114,9 @@ const App = () => {
       '-b:v',
       `${config.bitrate}k`,
       '-vf',
-      `scale=w=512:h=512:force_original_aspect_ratio=decrease, setpts=${1 / config.speed}*PTS`,
+      `scale=w=512:h=512:force_original_aspect_ratio=decrease, setpts=${
+        1 / config.speed
+      }*PTS`,
       '-r',
       `${config.fps}`,
       '-pix_fmt',
@@ -122,30 +135,68 @@ const App = () => {
     }
 
     ffmpeg.setProgress((p) => {
-      setProgress(p.ratio);
+      setConvertProgress(p.ratio);
     });
 
-    setProgress(0);
+    setConvertProgress(0);
     setConverting(true);
     await ffmpeg.run(...command);
     setConverting(false);
 
     const convertedData = ffmpeg.FS('readFile', 'output.webm');
-    const convertedBlob = uint8ArrayToBlobUrl(convertedData, { type: 'video/webm' });
+    const convertedBlob = uint8ArrayToBlobUrl(convertedData, {
+      type: 'video/webm',
+    });
     setConvertedFileSize(convertedData.length);
     setConvertedSrc(convertedBlob);
   }
 
   return (
     <div>
+      {!videoSrc && init && (
+        <div
+          style={{
+            height: '100vh',
+            width: '100vw',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div>
+            <Upload.Dragger
+              multiple={false}
+              style={{
+                padding: '1rem',
+              }}
+              customRequest={(f) => {
+                const fFile = f.file;
+                if (typeof fFile === 'string') { return f.onError?.(new Error('Invalid file')); }
+                loadInputFile(fFile, f.onProgress, f.onSuccess, f.onError);
+                console.log(f);
+              }}
+            >
+              <p className="ant-upload-drag-icon">
+                <InboxOutlined />
+              </p>
+              <p className="ant-upload-text">Upload a video to start</p>
+              <p className="ant-upload-hint">
+                Support for a single or bulk upload. Strictly prohibit from
+                uploading company data or other band files
+              </p>
+            </Upload.Dragger>
+          </div>
+        </div>
+      )}
       {videoSrc && (
         <>
           <video ref={videoRef} style={{ width: '100%', height: '512px' }}>
             <source src={`${videoSrc}`} />
           </video>
-          <div style={{
-            textAlign: 'center',
-          }}
+          <div
+            style={{
+              textAlign: 'center',
+            }}
           >
             FPS and Bitrate will not reflect in the preview video.
           </div>
@@ -178,7 +229,13 @@ const App = () => {
                     range={{ draggableTrack: true }}
                     max={videoDuration}
                     step={1}
-                    tipFormatter={(v) => (v ? dayjs.duration(Math.round(v / 1000), 'milliseconds').format('HH:mm:ss.SSS') : '')}
+                    tipFormatter={(v) =>
+                      (typeof v === 'number'
+                        ? dayjs
+                          .duration(Math.round(v / 1000), 'milliseconds')
+                          .format('HH:mm:ss.SSS')
+                        : '')
+                    }
                     onChange={(v: [number, number]) => {
                       if (videoRef.current) {
                         if (store.time[0] === v[0]) {
@@ -224,33 +281,39 @@ const App = () => {
         </>
       )}
 
-
-      {converting &&
-      <div style={{
-        padding: '20px',
-      }}
-      >
-        <Progress percent={progress * 100} />
-      </div>
-      }
-
-      {progress === 1 && convertedSrc && convertedFileSize && (
-      <Card
-        size="default"
-        title={(
-          <a download href={convertedSrc}>Download Video ({Math.ceil(convertedFileSize / 1000)}KB)</a>
+      {converting && (
+        <div
+          style={{
+            padding: '20px',
+          }}
+        >
+          <Progress percent={convertProgress * 100} />
+        </div>
       )}
-        extra={<a href="#" onClick={() => setConvertedSrc(undefined)}>Close</a>}
-        style={{ width: 300 }}
-      >
-        <Row>
-          <Col span={24}>
-            <video controls key={convertedSrc} style={{ width: '100%' }}>
-              <source src={convertedSrc} />
-            </video>
-          </Col>
-        </Row>
-      </Card>
+
+      {convertProgress === 1 && convertedSrc && convertedFileSize && (
+        <Card
+          size="default"
+          title={
+            <a download href={convertedSrc}>
+              Download Video ({Math.ceil(convertedFileSize / 1000)}KB)
+            </a>
+          }
+          extra={
+            <a href="#" onClick={() => setConvertedSrc(undefined)}>
+              Close
+            </a>
+          }
+          style={{ width: 300 }}
+        >
+          <Row>
+            <Col span={24}>
+              <video controls key={convertedSrc} style={{ width: '100%' }}>
+                <source src={convertedSrc} />
+              </video>
+            </Col>
+          </Row>
+        </Card>
       )}
     </div>
   );
