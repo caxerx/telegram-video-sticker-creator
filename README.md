@@ -4,6 +4,20 @@
 
 The website used [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm) to convert video to vp9 video and remove the audio tracks in the browser without server-side application.
 
+# Tested Browser
+
+## Supported
+
+- Chrome 97
+
+## Not Supported
+
+- Safari on Mac
+  - preview is not working
+  - not exporting the correct file
+- Safari on iOS
+  - the app do not load
+
 # Converted Format
 
 - vp9
