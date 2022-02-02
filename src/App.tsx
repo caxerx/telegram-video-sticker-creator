@@ -8,6 +8,8 @@ import {
   Progress,
   Card,
   Upload,
+  Tooltip,
+  Input,
 } from 'antd';
 
 import { InboxOutlined } from '@ant-design/icons';
@@ -16,6 +18,10 @@ import { useEffect, useRef, useState } from 'react';
 import { fetchFile } from '@ffmpeg/ffmpeg';
 import { getFileInfo, getFrames } from './utils/ffprobe';
 import { ffmpeg } from './utils/ffmpeg';
+
+import Cropper from 'cropperjs';
+import 'cropperjs/dist/cropper.css';
+import './cropper.scss';
 
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -35,9 +41,11 @@ const App = () => {
 
   const [convertedSrc, setConvertedSrc] = useState<string>();
   const [convertedFileSize, setConvertedFileSize] = useState<number>();
+  const [videoDuration, setVideoDuration] = useState<number>(10);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoDuration, setVideoDuration] = useState<number>(10);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cropper, setCropper] = useState<Cropper>();
 
   const [converting, setConverting] = useState(false);
   const [convertProgress, setConvertProgress] = useState(-1);
@@ -60,7 +68,7 @@ const App = () => {
     ffmpeg?.FS('writeFile', filename, data);
 
     ffmpeg.setProgress((progress) => {
-      onProgress?.({ percent: progress.ratio });
+      onProgress?.({ percent: progress.ratio * 100 });
     });
 
     try {
@@ -85,6 +93,18 @@ const App = () => {
 
     setVideoDuration(fileInfo.duration);
     setVideoSrc(uint8ArrayToBlobUrl(convertedData));
+    setTimeout(() => {
+      if (canvasRef.current) {
+        const _cropper = new Cropper(canvasRef.current, {
+          background: false,
+          modal: false,
+          highlight: false,
+          viewMode: 1,
+        });
+        _cropper.destroy();
+        setCropper(_cropper);
+      }
+    });
   }
 
   function timeStop(stop: number) {
@@ -106,9 +126,20 @@ const App = () => {
   }
 
   async function convert(config: ConvertSetting) {
-    const command = [
+    console.log(cropper?.getCropBoxData());
+    const trimCommand = [
       '-i',
       'input.mp4',
+      '-ss',
+      `${config.time[0] / 1000000}`,
+      '-to',
+      `${config.time[1] / 1000000}`,
+      'trim.mp4',
+    ];
+
+    const command = [
+      '-i',
+      'trim.mp4',
       '-c:v',
       'libvpx-vp9',
       '-b:v',
@@ -121,32 +152,33 @@ const App = () => {
       `${config.fps}`,
       '-pix_fmt',
       'yuva420p',
-      '-ss',
-      `${config.time[0] / 1000000}`,
-      '-to',
-      `${config.time[1] / 1000000}`,
       'output.webm',
     ];
 
     try {
+      ffmpeg.FS('unlink', 'trim.mp4');
       ffmpeg.FS('unlink', 'output.webm');
     } catch (e) {
       // ignore
     }
 
+    setConvertProgress(0);
+    setConverting(true);
+
     ffmpeg.setProgress((p) => {
       setConvertProgress(p.ratio);
     });
 
-    setConvertProgress(0);
-    setConverting(true);
+    await ffmpeg.run(...trimCommand);
     await ffmpeg.run(...command);
+
     setConverting(false);
 
     const convertedData = ffmpeg.FS('readFile', 'output.webm');
     const convertedBlob = uint8ArrayToBlobUrl(convertedData, {
       type: 'video/webm',
     });
+
     setConvertedFileSize(convertedData.length);
     setConvertedSrc(convertedBlob);
   }
@@ -171,7 +203,9 @@ const App = () => {
               }}
               customRequest={(f) => {
                 const fFile = f.file;
-                if (typeof fFile === 'string') { return f.onError?.(new Error('Invalid file')); }
+                if (typeof fFile === 'string') {
+                  return f.onError?.(new Error('Invalid file'));
+                }
                 loadInputFile(fFile, f.onProgress, f.onSuccess, f.onError);
                 console.log(f);
               }}
@@ -180,19 +214,27 @@ const App = () => {
                 <InboxOutlined />
               </p>
               <p className="ant-upload-text">Upload a video to start</p>
-              <p className="ant-upload-hint">
-                Support for a single or bulk upload. Strictly prohibit from
-                uploading company data or other band files
-              </p>
+              <p className="ant-upload-hint">Drag or click to upload video</p>
             </Upload.Dragger>
           </div>
         </div>
       )}
       {videoSrc && (
         <>
-          <video ref={videoRef} style={{ width: '100%', height: '512px' }}>
-            <source src={`${videoSrc}`} />
-          </video>
+          <div className="video-section">
+            <div id="video-container">
+              <video ref={videoRef}>
+                <source src={`${videoSrc}`} />
+              </video>
+            </div>
+
+            <div id="crop-container">
+              <canvas width={700} height={700} ref={canvasRef} />
+            </div>
+
+
+          </div>
+
           <div
             style={{
               textAlign: 'center',
@@ -224,29 +266,41 @@ const App = () => {
           >
             {(store: ConvertSetting) => (
               <>
-                <Form.Item name="time">
-                  <Slider
-                    range={{ draggableTrack: true }}
-                    max={videoDuration}
-                    step={1}
-                    tipFormatter={(v) =>
-                      (typeof v === 'number'
-                        ? dayjs
-                          .duration(Math.round(v / 1000), 'milliseconds')
-                          .format('HH:mm:ss.SSS')
-                        : '')
-                    }
-                    onChange={(v: [number, number]) => {
-                      if (videoRef.current) {
-                        if (store.time[0] === v[0]) {
-                          videoRef.current.currentTime = v[1] / 1000000;
-                        } else {
-                          videoRef.current.currentTime = v[0] / 1000000;
+                <Row gutter={8}>
+                  <Col span={18}>
+                    <Form.Item name="time">
+                      <Slider
+                        range={{ draggableTrack: true }}
+                        max={videoDuration}
+                        step={1}
+                        tipFormatter={(v) =>
+                          (typeof v === 'number'
+                            ? dayjs
+                              .duration(Math.round(v / 1000 / store.speed), 'milliseconds')
+                              .format('mm:ss.SSS')
+                            : '')
                         }
-                      }
-                    }}
-                  />
-                </Form.Item>
+                        onChange={(v: [number, number]) => {
+                          if (videoRef.current) {
+                            if (store.time[0] === v[0]) {
+                              videoRef.current.currentTime = v[1] / 1000000;
+                            } else {
+                              videoRef.current.currentTime = v[0] / 1000000;
+                            }
+                          }
+                        }}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={2}>
+                    <Input
+                      disabled
+                      value={dayjs
+                        .duration(Math.round((store.time[1] - store.time[0]) / store.speed / 1000), 'milliseconds')
+                        .format('mm:ss.SSS')}
+                    />
+                  </Col>
+                </Row>
 
                 <Row>
                   <Col span={18}>
@@ -271,9 +325,26 @@ const App = () => {
 
                 <Form.Item>
                   <Button type="primary" htmlType="submit">
-                    Play
+                    Play Preview
                   </Button>
-                  <Button onClick={() => convert(store)}>Convert</Button>
+
+                  <Tooltip
+                    title="Length is limited to 3 seconds"
+                    visible={
+                      (store.time[1] - store.time[0]) / store.speed <= 3000000
+                        ? false
+                        : undefined
+                    }
+                  >
+                    <Button
+                      onClick={() => convert(store)}
+                      disabled={
+                        (store.time[1] - store.time[0]) / store.speed > 3000000
+                      }
+                    >
+                      Start Convert
+                    </Button>
+                  </Tooltip>
                 </Form.Item>
               </>
             )}

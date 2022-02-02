@@ -1,0 +1,39 @@
+.video-section {
+  width: 700px;
+  position: relative;
+}
+
+#video-container {
+  overflow: hidden;
+  position: relative;
+
+  width: 700px;
+  height: 700px;
+
+  video {
+    position: absolute;
+
+    width: 700px;
+    height: 700px;
+  }
+}
+
+#crop-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+
+  canvas {
+    display: block;
+    max-width: 100%;
+  }
+}
+
+.cropper-face {
+  background-color: transparent;
+}
+
+.cropper-crop-box {
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
