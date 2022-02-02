@@ -51,31 +51,37 @@ const ConvertSettingForm = ({
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" onClick={() => onPlay()}>
-            Play Preview
-          </Button>
+          <Row gutter={8}>
+            <Col>
+              <Button type="primary" onClick={() => onPlay()}>
+                Play Preview
+              </Button>
+            </Col>
 
-          <Tooltip
-            title="Telegram video sticker has video length limit: 3 seconds"
-            visible={
-              (videoEditorConfig.time[1] - videoEditorConfig.time[0]) /
-                videoEditorConfig.speed <=
-              3000000
-                ? false
-                : undefined
-            }
-          >
-            <Button
-              onClick={() => onConvert()}
-              danger={
-                (videoEditorConfig.time[1] - videoEditorConfig.time[0]) /
-                  videoEditorConfig.speed >
-                3000000
-              }
-            >
-              Start Convert
-            </Button>
-          </Tooltip>
+            <Col>
+              <Tooltip
+                title="Telegram video sticker has video length limit: 3 seconds"
+                visible={
+                  (videoEditorConfig.time[1] - videoEditorConfig.time[0]) /
+                    videoEditorConfig.speed <=
+                  3000000
+                    ? false
+                    : undefined
+                }
+              >
+                <Button
+                  onClick={() => onConvert()}
+                  danger={
+                    (videoEditorConfig.time[1] - videoEditorConfig.time[0]) /
+                      videoEditorConfig.speed >
+                    3000000
+                  }
+                >
+                  Start Convert
+                </Button>
+              </Tooltip>
+            </Col>
+          </Row>
         </Form.Item>
       </>
     </Form>
