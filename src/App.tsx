@@ -239,7 +239,7 @@ const App = () => {
         minWidth: "520px",
       }}
     >
-      {!state.inputFile.fileLoaded && (
+      {state.ffmpeg.init && !state.inputFile.fileLoaded && (
         <FileUpload
           onFileUpload={(f) => {
             loadInputFile(f.file, f.onProgress, f.onSuccess, f.onError);
